@@ -11,8 +11,6 @@ class TextToSpeechService extends EventEmitter {
 
   async generate(text) {
     const outputFormat = "pcm_16000";
-    // Docs say Query Params...so I appended...it is POST so :shrug:
-    // `pcm_44100` is causing a 403
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${this.config.voiceId}/stream?output_format=${outputFormat}`,
       {
@@ -24,6 +22,7 @@ class TextToSpeechService extends EventEmitter {
         },
         // TODO: Pull more config? https://docs.elevenlabs.io/api-reference/text-to-speech-stream
         body: JSON.stringify({
+          model_id: process.env.XI_MODEL_ID,
           text,
         }),
       }
@@ -33,11 +32,12 @@ class TextToSpeechService extends EventEmitter {
       const audioArrayBuffer = await response.arrayBuffer();
       const wav = new WaveFile();
       // TODO: I am not sure this is right (or how to know)
-      wav.fromScratch(1, 16000, '16', new Uint16Array(audioArrayBuffer));
+      wav.fromScratch(1, 16000, '16', new Int16Array(audioArrayBuffer));
       wav.toSampleRate(8000);
       wav.toMuLaw();
+      const label = text;
       // Do not send the WAV headers (that's why `data.samples`)
-      this.emit("speech", Buffer.from(wav.data.samples).toString("base64"));
+      this.emit("speech", Buffer.from(wav.data.samples).toString("base64"), label);
     } catch (err) {
       console.error("Error occurred in TextToSpeech service");
       console.error(err);
